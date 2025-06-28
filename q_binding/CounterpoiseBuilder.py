@@ -101,18 +101,21 @@ class CounterpoiseBuilder:
 
         moles = {}
         for tag, xyz in self._geometries.items():
-            # skip header (first 2 lines)
-            atoms: list[tuple[str, tuple[float, float, float]]] = []
+            atoms = []
+            tot_electrons = 0
             for line in xyz.splitlines()[2:]:
                 if not line.strip():
                     continue
-                sym, x, y, z, *_ = line.split()
+                sym, x, y, z = line.split()[:4]
                 atoms.append((sym, (float(x), float(y), float(z))))
+                if not sym.startswith("GHOST-"):
+                    elem = sym  # real atom
+                    tot_electrons += gto.mole.charge(elem)
 
             mol = gto.Mole()
             mol.atom = atoms
             mol.charge = 0
-            mol.spin = 0
+            mol.spin = tot_electrons % 2
 
             # build element/ghost-specific basis dict
             basis_dict = {}
