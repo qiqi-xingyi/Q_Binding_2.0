@@ -5,3 +5,4 @@
 # @File:__init__.py.py
 
 from .CounterpoiseBuilder import CounterpoiseBuilder
+from .HamiltonianBuilder import HamiltonianBuilder
