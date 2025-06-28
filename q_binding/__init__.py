@@ -4,4 +4,4 @@
 # @Email : yzhan135@kent.edu
 # @File:__init__.py.py
 
-from CounterpoiseBuilder import CounterpoiseBuilder
+from .CounterpoiseBuilder import CounterpoiseBuilder
