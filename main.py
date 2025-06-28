@@ -5,7 +5,8 @@
 # @File:main.py
 
 from q_binding import CounterpoiseBuilder
-
+from q_binding import HamiltonianBuilder
+from qiskit_nature.second_q.transformers import FreezeCoreTransformer
 
 if __name__ == '__main__':
 
@@ -21,3 +22,10 @@ if __name__ == '__main__':
     # Obtain PySCF Mole objects if needed
     mole_dict = cp.to_pyscf(basis="def2-SVP")
     energy_complex = mole_dict["complex"].energy_tot()
+
+    ham_builder = HamiltonianBuilder(
+        mole_dict,
+        transformers=[FreezeCoreTransformer()]  # optional
+    )
+    ham_ops = ham_builder.build_hamiltonians()
+    ham_builder.write_json("./ham/")
