@@ -88,14 +88,46 @@ class CounterpoiseBuilder:
         for tag, xyz in self._geometries.items():
             (Path(out_dir) / f"{tag}.xyz").write_text(xyz)
 
+    @staticmethod
+    def _ghost(rec):
+        """Return an atom record whose element is a ghost version."""
+        name, res, chain, idx, elem, x, y, z = rec
+        return (name, res, chain, idx, f"GHOST-{elem}", x, y, z)
+
+    # ------------------------------------------------------------------
     def to_pyscf(self, basis: str = "def2-SVP"):
-        """Return a dict of PySCF Mole objects; call build_geometries() first."""
-        from pyscf import gto
+        """Return PySCF Mole objects dictionary (compatible with ghost atoms)."""
+        from pyscf import gto, lib, basis as pyscf_basis
 
         moles = {}
         for tag, xyz in self._geometries.items():
-            # PySCF accepts element names like 'GhC' for ghost carbon.
-            moles[tag] = gto.M(atom=xyz, basis=basis, charge=0, spin=0)
+            # Parse xyz string (skip first 2 header lines)
+            atoms = []
+            for line in xyz.splitlines()[2:]:
+                if not line.strip():
+                    continue
+                parts = line.split()
+                label = parts[0]
+                x, y, z = map(float, parts[1:4])
+                atoms.append((label, (x, y, z)))
+
+            mol = gto.Mole()
+            mol.atom = atoms
+            mol.charge = 0
+            mol.spin = 0
+
+            # Build basis dict: real elements use the global string;
+            # ghost labels reuse the parent's basis via gto.basis.load
+            basis_dict = {}
+            for lbl, _ in atoms:
+                if lbl.startswith("GHOST-"):
+                    parent = lbl.split("-", 1)[1]
+                    basis_dict[lbl] = pyscf_basis.load(basis, parent)
+                else:
+                    basis_dict[lbl] = basis
+            mol.basis = basis_dict
+            mol.build()
+            moles[tag] = mol
         return moles
 
     # ---------- internal helpers ----------

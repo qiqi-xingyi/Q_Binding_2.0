@@ -10,18 +10,12 @@ from qiskit_nature.second_q.transformers import FreezeCoreTransformer
 
 if __name__ == '__main__':
 
-    pdb_path  = "./data/1c5z/1c5z_Binding_mode.pdb"
-    plip_path = "./data/1c5z/1c5z_interaction.txt"
+    pdb = "./data/1c5z/1c5z_Binding_mode.pdb"
+    plip = "./data/1c5z/1c5z_interaction.txt"
 
-    cp = CounterpoiseBuilder(pdb_path, plip_path, ligand_id=("A", "MOL"))
-
-    # Autodetect interacting residues via PLIP, then build CP geometries
-    geoms = cp.build_geometries()
-    cp.write_xyz("./geom/")         # writes complex.xyz, fragA.xyz, fragB.xyz
-
-    # Obtain PySCF Mole objects if needed
+    cp = CounterpoiseBuilder(pdb, plip, ligand_id=("A", "MOL"))
+    cp.build_geometries()
     mole_dict = cp.to_pyscf(basis="def2-SVP")
-    energy_complex = mole_dict["complex"].energy_tot()
 
     ham_builder = HamiltonianBuilder(
         mole_dict,
