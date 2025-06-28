@@ -96,36 +96,34 @@ class CounterpoiseBuilder:
 
     # ------------------------------------------------------------------
     def to_pyscf(self, basis: str = "def2-SVP"):
-        """Return PySCF Mole objects dictionary (compatible with ghost atoms)."""
-        from pyscf import gto, lib, basis as pyscf_basis
+        """Return PySCF Mole objects dictionary (ghost atoms supported)."""
+        from pyscf import gto
 
         moles = {}
         for tag, xyz in self._geometries.items():
-            # Parse xyz string (skip first 2 header lines)
-            atoms = []
+            # skip header (first 2 lines)
+            atoms: list[tuple[str, tuple[float, float, float]]] = []
             for line in xyz.splitlines()[2:]:
                 if not line.strip():
                     continue
-                parts = line.split()
-                label = parts[0]
-                x, y, z = map(float, parts[1:4])
-                atoms.append((label, (x, y, z)))
+                sym, x, y, z, *_ = line.split()
+                atoms.append((sym, (float(x), float(y), float(z))))
 
             mol = gto.Mole()
             mol.atom = atoms
             mol.charge = 0
             mol.spin = 0
 
-            # Build basis dict: real elements use the global string;
-            # ghost labels reuse the parent's basis via gto.basis.load
+            # build element/ghost-specific basis dict
             basis_dict = {}
-            for lbl, _ in atoms:
-                if lbl.startswith("GHOST-"):
-                    parent = lbl.split("-", 1)[1]
-                    basis_dict[lbl] = pyscf_basis.load(basis, parent)
+            for sym, _ in atoms:
+                if sym.startswith("GHOST-"):
+                    parent = sym.split("-", 1)[1]          # e.g. C from GHOST-C
+                    basis_dict[sym] = gto.basis.load(basis, parent)
                 else:
-                    basis_dict[lbl] = basis
+                    basis_dict[sym] = basis
             mol.basis = basis_dict
+
             mol.build()
             moles[tag] = mol
         return moles
