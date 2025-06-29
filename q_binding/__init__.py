@@ -6,3 +6,4 @@
 
 from .CounterpoiseBuilder import CounterpoiseBuilder
 from .HamiltonianBuilder import HamiltonianBuilder
+from .active_space_auto import AutoActiveSpace

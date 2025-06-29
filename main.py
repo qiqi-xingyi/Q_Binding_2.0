@@ -4,42 +4,51 @@
 # @Email : yzhan135@kent.edu
 # @File:main.py
 
-# main.py
+
 from pathlib import Path
+from pyscf import scf
 
 from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
+from q_binding import AutoActiveSpace
 
 
 def main() -> None:
-
     pdb_path = "./data/1c5z/1c5z_Binding_mode.pdb"
     plip_path = "./data/1c5z/1c5z_interaction.txt"
 
-
+    # --- CP geometries -------------------------------------------------
     cp = CounterpoiseBuilder(pdb_path, plip_path, ligand_id=("A", "MOL"))
-
-    # Build geometries with PLIP-detected residues (default mode)
     cp.build_geometries()
-
-    # Optional: write XYZ files for inspection
-    cp.write_xyz("./geom")
-
     mole_dict = cp.to_pyscf(basis="def2-SVP")
 
+    # --- HF on complex for active-space decision -----------------------
+    hf_compl = scf.RHF(mole_dict["complex"]).run()
+    auto = AutoActiveSpace(qubit_budget=127)
+    trfs, metrics = auto.from_complex(mole_dict["complex"], hf_compl)
 
-    ham_builder = HamiltonianBuilder(mole_dict)
-    ham_ops = ham_builder.build_hamiltonians()
+    print(
+        f"Active space chosen: {metrics['active_orb']} spatial orbitals, "
+        f"{metrics['active_elec']} electrons → {metrics['qubits']} qubits"
+    )
 
-    # Persist each Hamiltonian to JSON for later VQE runs
-    ham_out = Path("./ham")
-    ham_out.mkdir(exist_ok=True)
-    ham_builder.write_json(ham_out.as_posix())
+    # --- Build Hamiltonians for all three fragments --------------------
+    ham_ops = {}
+    ham_path = Path("./ham")
+    ham_path.mkdir(exist_ok=True)
 
-    # for tag, ham in ham_ops.items():
-    #     nelec = ham.num_alpha + ham.num_beta
-    #     norb = ham.num_spatial_orbitals
-    #     print(f"{tag:<8s}: {nelec:>3d} electrons, {norb:>3d} spatial orbitals")
+    for tag in ["complex", "fragA", "fragB"]:
+        hbuilder = HamiltonianBuilder(
+            {tag: mole_dict[tag]}, transformers=trfs
+        )
+        op = hbuilder.build_hamiltonians()[tag]
+        ham_ops[tag] = op
+        # persist
+        (ham_path / f"{tag}.json").write_text(op.to_json())
+        print(f"{tag:<7s}: {op.num_alpha + op.num_beta:>3d} e, "
+              f"{op.num_spatial_orbitals:>3d} orb → "
+              f"{op.num_spatial_orbitals*2:>3d} qubits")
+
 
 if __name__ == "__main__":
     main()
