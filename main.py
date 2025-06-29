@@ -49,7 +49,6 @@ def main() -> None:
               f"{op.num_spatial_orbitals:>3d} orb → "
               f"{op.num_spatial_orbitals*2:>3d} qubits")
 
-
 if __name__ == "__main__":
     main()
 
