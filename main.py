@@ -13,6 +13,7 @@ from q_binding import AutoActiveSpace
 
 
 def main() -> None:
+
     pdb_path = "./data/1c5z/1c5z_Binding_mode.pdb"
     plip_path = "./data/1c5z/1c5z_interaction.txt"
 
