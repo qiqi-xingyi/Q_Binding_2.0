@@ -11,6 +11,12 @@ from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
 from q_binding import AutoActiveSpace
 
+from pyscf import lib
+THREADS = 8
+lib.num_threads(THREADS)
+
+HF_TOL = 0.6
+MAX_QB = 72
 
 def main() -> None:
 
@@ -23,9 +29,12 @@ def main() -> None:
     mole_dict = cp.to_pyscf(basis="def2-SVP")
 
     # --- HF on complex for active-space decision -----------------------
-    hf_compl = scf.RHF(mole_dict["complex"]).run()
-    auto = AutoActiveSpace(qubit_budget=127)
-    trfs, metrics = auto.from_complex(mole_dict["complex"], hf_compl)
+
+    auto = AutoActiveSpace(qubit_ceiling=MAX_QB, target_tol=HF_TOL)
+
+    hf_compl = scf.RHF(mole_dict["complex"]).density_fit().run()
+    trs, metrics = auto.from_complex(mole_dict["complex"], hf_compl)
+    print(f"active_orb={metrics['active_orb']}, qubits={metrics['qubits']}")
 
     print(
         f"Active space chosen: {metrics['active_orb']} spatial orbitals, "
@@ -39,7 +48,7 @@ def main() -> None:
 
     for tag in ["complex", "fragA", "fragB"]:
         hbuilder = HamiltonianBuilder(
-            {tag: mole_dict[tag]}, transformers=trfs
+            {tag: mole_dict[tag]}, transformers=trs
         )
         op = hbuilder.build_hamiltonians()[tag]
         ham_ops[tag] = op
