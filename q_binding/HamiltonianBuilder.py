@@ -14,7 +14,6 @@ from qiskit_nature.second_q.problems import ElectronicStructureProblem
 from qiskit_nature.second_q.transformers import BaseTransformer
 
 
-
 class HamiltonianBuilder:
     """
     Build second-quantized Hamiltonians (ElectronicEnergy) from
