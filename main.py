@@ -11,10 +11,6 @@ from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
 from q_binding import AutoActiveSpace
 
-from pyscf import lib
-THREADS = 8
-lib.num_threads(THREADS)
-
 HF_TOL = 0.6
 MAX_QB = 72
 
