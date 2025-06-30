@@ -4,7 +4,6 @@
 # @Email : yzhan135@kent.edu
 # @File:main.py
 
-# main
 
 from pathlib import Path
 from pyscf import scf
