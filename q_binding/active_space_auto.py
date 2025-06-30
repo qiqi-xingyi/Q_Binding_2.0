@@ -81,8 +81,13 @@ class AutoActiveSpace:
         (HF energy in active space). Returns kcal/mol.
         """
         from qiskit_nature.second_q.drivers import PySCFDriver
-        driver = PySCFDriver(atom=mol_cplx.atom, charge=mol_cplx.charge,
-                             spin=mol_cplx.spin, basis=mol_cplx.basis)
+
+        # driver = PySCFDriver(atom=mol_cplx.atom, charge=mol_cplx.charge,
+        #                      spin=mol_cplx.spin, basis=mol_cplx.basis)
+
+        atom_strings = [f"{sym} {x:.10f} {y:.10f} {z:.10f}"for sym, (x, y, z) in mol_cplx.atom]
+        driver = PySCFDriver(atom=atom_strings, charge=mol_cplx.charge, spin=mol_cplx.spin, basis=mol_cplx.basis)
+
         problem = driver.run()
         problem = act_trf.transform(problem)
 
