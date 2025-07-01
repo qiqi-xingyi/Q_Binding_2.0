@@ -7,7 +7,6 @@
 from pathlib import Path
 from pyscf import scf
 
-
 from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
 from q_binding import AutoActiveSpace
