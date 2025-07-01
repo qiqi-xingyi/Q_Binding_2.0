@@ -11,8 +11,8 @@ from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
 from q_binding import AutoActiveSpace
 
-HF_TOL = 2
-MAX_QB = 15
+HF_TOL = 3
+MAX_QB = 10
 
 def main() -> None:
 
