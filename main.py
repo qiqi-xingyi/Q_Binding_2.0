@@ -49,24 +49,23 @@ def main() -> None:
 
     for tag in ["complex", "fragA", "fragB"]:
 
-        driver = PySCFDriver(atom=[
-            f"{sym} {x} {y} {z}" for sym, (x, y, z) in mole_dict[tag].atom
-        ], charge=mole_dict[tag].charge, spin=mole_dict[tag].spin,
-            basis=mole_dict[tag].basis)
+        driver = PySCFDriver(
+            atom=[f"{s} {x} {y} {z}" for s, (x, y, z) in mole_dict[tag].atom],
+            charge=mole_dict[tag].charge,
+            spin=mole_dict[tag].spin,
+            basis=mole_dict[tag].basis,
+        )
 
         problem_raw = driver.run()
         problem_frozen = freeze_trf.transform(problem_raw)
 
 
-        na, nb = problem_frozen.num_particles
-        elec_available = na + nb
-
-
-        elec_active = min(metrics["active_elec"], elec_available)
+        n_alpha, n_beta = problem_frozen.num_particles
+        elec_tuple = (n_alpha, n_beta)
 
         act_trf = ActiveSpaceTransformer(
-            num_electrons=elec_active,
-            num_spatial_orbitals=metrics["active_orb"],
+            num_electrons=elec_tuple,
+            num_spatial_orbitals=metrics["active_orb"]
         )
 
 
