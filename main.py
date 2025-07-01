@@ -23,7 +23,8 @@ def main() -> None:
     # --- CP geometries -------------------------------------------------
     cp = CounterpoiseBuilder(pdb_path, plip_path, ligand_id=("A", "MOL"))
     cp.build_geometries()
-    mole_dict = cp.to_pyscf(basis="def2-SVP")
+    # mole_dict = cp.to_pyscf(basis="def2-SVP")
+    mole_dict = cp.to_pyscf(basis="sto-3g")
 
     # --- HF on complex for active-space decision -----------------------
 
