@@ -50,13 +50,13 @@ def main() -> None:
     for tag in ["complex", "fragA", "fragB"]:
 
         act_trf = ActiveSpaceTransformer(
-            num_electrons=proto_act.num_electrons,
-            num_spatial_orbitals=proto_act.num_spatial_orbitals,
+            num_electrons=metrics["active_elec"],
+            num_spatial_orbitals=metrics["active_orb"],
         )
 
         hbuilder = HamiltonianBuilder(
             {tag: mole_dict[tag]},
-            transformers=[freeze_trf, act_trf]  # ← 新列表
+            transformers=[freeze_trf, act_trf]
         )
         op = hbuilder.build_hamiltonians()[tag]
         ham_ops[tag] = op
