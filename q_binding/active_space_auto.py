@@ -53,7 +53,6 @@ class AutoActiveSpace:
             act_trf = ActiveSpaceTransformer(
                 num_electrons=num_elec,
                 num_spatial_orbitals=num_orb,
-                active_orbitals=active,
             )
 
             # --- break conditions -------------------------------------

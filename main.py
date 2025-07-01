@@ -12,6 +12,8 @@ from q_binding import CounterpoiseBuilder
 from q_binding import HamiltonianBuilder
 from q_binding import AutoActiveSpace
 
+from qiskit_nature.second_q.transformers import ActiveSpaceTransformer
+
 HF_TOL = 3
 MAX_QB = 10
 
@@ -32,6 +34,7 @@ def main() -> None:
 
     hf_compl = scf.RHF(mole_dict["complex"]).density_fit().run()
     trs, metrics = auto.from_complex(mole_dict["complex"], hf_compl)
+    freeze_trf, proto_act = trs
     print(f"active_orb={metrics['active_orb']}, qubits={metrics['qubits']}")
 
     print(
@@ -45,16 +48,22 @@ def main() -> None:
     ham_path.mkdir(exist_ok=True)
 
     for tag in ["complex", "fragA", "fragB"]:
+
+        act_trf = ActiveSpaceTransformer(
+            num_electrons=proto_act.num_electrons,
+            num_spatial_orbitals=proto_act.num_spatial_orbitals,
+        )
+
         hbuilder = HamiltonianBuilder(
-            {tag: mole_dict[tag]}, transformers=trs
+            {tag: mole_dict[tag]},
+            transformers=[freeze_trf, act_trf]  # ← 新列表
         )
         op = hbuilder.build_hamiltonians()[tag]
         ham_ops[tag] = op
-        # persist
         (ham_path / f"{tag}.json").write_text(op.to_json())
         print(f"{tag:<7s}: {op.num_alpha + op.num_beta:>3d} e, "
               f"{op.num_spatial_orbitals:>3d} orb → "
-              f"{op.num_spatial_orbitals*2:>3d} qubits")
+              f"{op.num_spatial_orbitals * 2:>3d} qubits")
 
 if __name__ == "__main__":
     main()
