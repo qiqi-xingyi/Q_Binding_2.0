@@ -15,7 +15,7 @@ from q_binding import AutoActiveSpace
 from qiskit_nature.second_q.transformers import ActiveSpaceTransformer
 from qiskit_nature.second_q.drivers import PySCFDriver
 
-HF_TOL = 4
+HF_TOL = 0.05
 MAX_QB = 15
 
 def main() -> None:
