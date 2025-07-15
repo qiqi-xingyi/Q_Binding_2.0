@@ -16,7 +16,7 @@ from qiskit_nature.second_q.transformers import ActiveSpaceTransformer
 from qiskit_nature.second_q.drivers import PySCFDriver
 
 HF_TOL = 0.05
-MAX_QB = 15
+MAX_QB = 90
 
 def main() -> None:
 
