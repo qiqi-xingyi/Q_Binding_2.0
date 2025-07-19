@@ -29,7 +29,7 @@ def main() -> None:
     # mole_dict = cp.to_pyscf(basis="def2-SVP")
     mole_dict = cp.to_pyscf(basis="sto-3g")
 
-    # --- HF on complex for active-space decision -----------------------
+    # --- HF on complex for active-space decision -----------
 
     auto = AutoActiveSpace(qubit_ceiling=MAX_QB, target_tol=HF_TOL)
 
