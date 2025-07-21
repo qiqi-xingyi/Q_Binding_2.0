@@ -23,7 +23,7 @@ def main() -> None:
     pdb_path = "./data/1c5z/1c5z_Binding_mode.pdb"
     plip_path = "./data/1c5z/1c5z_interaction.txt"
 
-    # --- CP geometries -------------------------------------------------
+    # --- CP geometries -----------------------------
     cp = CounterpoiseBuilder(pdb_path, plip_path, ligand_id=("A", "MOL"))
     cp.build_geometries()
     # mole_dict = cp.to_pyscf(basis="def2-SVP")
