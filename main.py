@@ -71,7 +71,6 @@ def main() -> None:
             num_spatial_orbitals=metrics["active_orb"]
         )
 
-
         hbuilder = HamiltonianBuilder(
             {tag: mole_dict[tag]},
             transformers=[freeze_trf, act_trf]
