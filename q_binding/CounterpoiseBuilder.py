@@ -32,7 +32,7 @@ class CounterpoiseBuilder:
         self.plip_path = Path(plip_path)
         self.lig_chain, self.lig_resname = ligand_id
         self.atoms = self._parse_pdb()
-        self.hot_residue_ids = self._parse_plip()  # e.g. ['SER:B:190', ...]
+        self.hot_residue_ids = self._parse_plip()
 
     # ---------- public API ----------
     def build_geometries(
