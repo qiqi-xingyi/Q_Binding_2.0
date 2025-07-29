@@ -15,11 +15,11 @@ from qiskit_nature.second_q.mappers      import JordanWignerMapper
 # ─────────────── Hardcoded Settings ───────────────
 SRC_DIR = "QM9/archive"     # directory containing .xyz files
 DST_DIR = "QM9/data"        # parent output directory
-BASIS   = "sto3g"          # basis set
-EPS     = 1e-4               # Pauli coefficient threshold
-N_PROC  = 8                  # number of parallel processes
+BASIS   = "sto3g"           # basis set
+EPS     = 1e-4                # Pauli coefficient threshold
+N_PROC  = 8                   # number of parallel processes
 
-# Create output directories
+# Derived paths
 OUT_INT = os.path.join(DST_DIR, "integrals_h5")
 OUT_PAU = os.path.join(DST_DIR, "paulis_h5")
 
@@ -61,7 +61,6 @@ def calc_integrals(Z, C, basis):
 
 
 def build_pauli(h_vec, g_vec, n, eps):
-    # reconstruct full matrices
     h = np.zeros((n, n), np.float64)
     h[np.triu_indices(n)] = h_vec
     h = h + h.T - np.diag(np.diag(h))
@@ -81,53 +80,54 @@ def build_pauli(h_vec, g_vec, n, eps):
     coeffs  = pauli_op.coeffs.real[sel].astype("float32")
     return strings, coeffs
 
-# ───────────────────────── Main Interface ─────────────────────────
+# ───────────────────────── Worker ─────────────────────────
+def worker(path):
+    stem = os.path.splitext(os.path.basename(path))[0]
+    Z, C = read_xyz(path)
+    h, g, n = calc_integrals(Z, C, BASIS)
+    p_strs, p_coeffs = build_pauli(h, g, n, EPS)
 
+    # save integrals
+    with h5py.File(os.path.join(OUT_INT, f"{stem}.h5"), "w") as f:
+        f["Z"] = Z
+        f["pos"] = C
+        f["h"] = h
+        f["g"] = g
+        f.attrs.update(n_orb=n, basis=BASIS)
+
+    # save pauli
+    with h5py.File(os.path.join(OUT_PAU, f"{stem}.h5"), "w") as f:
+        f["strings"] = p_strs
+        f["coeffs"]  = p_coeffs
+        f.attrs.update(mapper="JordanWigner", eps=EPS, n_orb=n, basis=BASIS)
+    return stem
+
+# ───────────────────────── Main ───────────────────────────
 def main():
-    # Prepare directories
+    # Ensure output dirs exist
     os.makedirs(OUT_INT, exist_ok=True)
     os.makedirs(OUT_PAU, exist_ok=True)
 
     xyz_paths = sorted(glob.glob(os.path.join(SRC_DIR, "*.xyz")))
     pool = mp.Pool(N_PROC)
-    bar  = tqdm(total=len(xyz_paths), desc="Processing XYZ files...")
-
-    def proc(path):
-        stem = os.path.splitext(os.path.basename(path))[0]
-        Z, C = read_xyz(path)
-        h, g, n = calc_integrals(Z, C, BASIS)
-        p_strs, p_coeffs = build_pauli(h, g, n, EPS)
-
-        # save integrals
-        with h5py.File(f"{OUT_INT}/{stem}.h5", "w") as f:
-            f["Z"] = Z; f["pos"] = C
-            f["h"] = h; f["g"]  = g
-            f.attrs.update(n_orb=n, basis=BASIS)
-
-        # save pauli
-        with h5py.File(f"{OUT_PAU}/{stem}.h5", "w") as f:
-            f["strings"] = p_strs
-            f["coeffs"]  = p_coeffs
-            f.attrs.update(mapper="JordanWigner", eps=EPS, n_orb=n, basis=BASIS)
-        return stem
-
-    for _ in pool.imap_unordered(proc, xyz_paths):
+    bar  = tqdm(total=len(xyz_paths), desc="Processing...")
+    for _ in pool.imap_unordered(worker, xyz_paths):
         bar.update()
     pool.close(); pool.join(); bar.close()
 
-    # create splits.json
+    # generate splits
     files = sorted(glob.glob(os.path.join(OUT_INT, "*.h5")))
     np.random.shuffle(files)
     n = len(files)
-    splits = {
-        "train": files[:int(.8*n)],
-        "val"  : files[int(.8*n):int(.9*n)],
-        "test" : files[int(.9*n):]
-    }
+    splits = {"train": files[:int(.8*n)],
+              "val":   files[int(.8*n):int(.9*n)],
+              "test":  files[int(.9*n):]}
     with open(os.path.join(DST_DIR, "splits.json"), "w") as fp:
         json.dump(splits, fp)
     print(f"Completed processing {n} samples.")
 
 if __name__ == "__main__":
     main()
+
+
 
