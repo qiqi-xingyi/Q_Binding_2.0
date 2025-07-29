@@ -68,7 +68,7 @@ def build_pauli(h_vec, g_vec, n, eps):
     sec_op = ElectronicStructureProblem(elH).second_q_ops()["ElectronicEnergy"]
 
     mapper   = JordanWignerMapper()
-    pauli_op = mapper.map(sec_op)          # ← 新接口
+    pauli_op = mapper.map(sec_op)
 
     sel = np.abs(pauli_op.coeffs.real) > eps
     strings = np.array([p.to_label() for p in pauli_op.paulis[sel]],
