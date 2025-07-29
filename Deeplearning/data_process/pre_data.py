@@ -10,7 +10,7 @@ from tqdm import tqdm
 from pyscf import gto, scf, ao2mo
 from qiskit_nature.second_q.hamiltonians import ElectronicEnergy
 from qiskit_nature.second_q.problems     import ElectronicStructureProblem
-from qiskit_nature.second_q.mappers      import JordanWignerMapper  # <-- 仅 mapper
+from qiskit_nature.second_q.mappers      import JordanWignerMapper
 
 
 def read_xyz(path):
@@ -85,13 +85,12 @@ def worker(arg):
     h, g, n = calc_integrals(Z, C, basis)
     p_strs, p_coeffs = build_pauli(h, g, n, eps)
 
-    # 1) 保存积分
     with h5py.File(f"{out_int}/{stem}.h5", "w") as f:
         f["Z"] = Z; f["pos"] = C
         f["h"] = h; f["g"]  = g
         f.attrs.update(n_orb=n, basis=basis)
 
-    # 2) 保存 Pauli
+
     with h5py.File(f"{out_pau}/{stem}.h5", "w") as f:
         f["strings"] = p_strs
         f["coeffs"]  = p_coeffs
@@ -99,7 +98,7 @@ def worker(arg):
                        n_orb=n, basis=basis)
     return stem
 
-# ─────────────────────────  Main  ────────────────────────────
+# ##  Main
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src",   required=True, help="dir of *.xyz")
