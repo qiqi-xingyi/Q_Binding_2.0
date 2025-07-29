@@ -11,6 +11,7 @@ from pyscf import gto, scf, ao2mo
 from qiskit_nature.second_q.hamiltonians import ElectronicEnergy
 from qiskit_nature.second_q.problems     import ElectronicStructureProblem
 from qiskit_nature.second_q.mappers      import JordanWignerMapper
+from pyscf.data.elements import charge
 
 # ─────────────── Hardcoded Settings ───────────────
 SRC_DIR = "QM9/archive"     # directory containing .xyz files
@@ -32,7 +33,7 @@ def read_xyz(path):
     n = int(lines[0]); Z, C = [], []
     for ln in lines[2:2+n]:
         sym, x, y, z = ln.split()[:4]
-        Z.append(gto.mole._symbol2charge(sym))
+        Z.append(charge(sym))
         C.append([float(x), float(y), float(z)])
     return np.array(Z, np.int16), np.array(C, np.float32)
 
