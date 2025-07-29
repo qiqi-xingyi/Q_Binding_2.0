@@ -16,7 +16,7 @@ from pyscf.data.elements import charge
 # ─────────────── Hardcoded Settings ───────────────
 SRC_DIR = "QM9/archive"     # directory containing .xyz files
 DST_DIR = "QM9/data"        # parent output directory
-BASIS   = "sto3g"           # basis set
+BASIS   = "cc-pVTZ"           # basis set
 EPS     = 1e-4                # Pauli coefficient threshold
 N_PROC  = 8                   # number of parallel processes
 
