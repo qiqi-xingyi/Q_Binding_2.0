@@ -74,7 +74,7 @@ def build_pauli(h_vec, g_vec, n, eps):
     g.reshape(-1)[mask_cache[n]] = g_vec
     g = (g + g.transpose(1, 0, 2, 3) + g.transpose(2, 3, 0, 1)) / 3.0
 
-    el_ham = ElectronicEnergy.from_raw_integrals(h, g)
+    el_ham = ElectronicEnergy.from_raw_integrals(h, g, auto_index_order=False)
     sec_op = ElectronicStructureProblem(el_ham).second_q_ops()["ElectronicEnergy"]
 
     pauli_op = JordanWignerMapper().map(sec_op)
