@@ -11,7 +11,6 @@ from pyscf import gto, scf, ao2mo
 from qiskit_nature.second_q.hamiltonians import ElectronicEnergy
 from qiskit_nature.second_q.problems     import ElectronicStructureProblem
 from qiskit_nature.second_q.mappers      import JordanWignerMapper
-from pyscf.data.elements import charge
 
 # ─────────────── Hardcoded Settings ───────────────
 SRC_DIR = "QM9/archive"     # directory containing .xyz files
@@ -33,7 +32,7 @@ def read_xyz(path):
     n = int(lines[0]); Z, C = [], []
     for ln in lines[2:2+n]:
         sym, x, y, z = ln.split()[:4]
-        Z.append(charge(sym))
+        Z.append(gto.mole._charge(sym))
         C.append([float(x), float(y), float(z)])
     return np.array(Z, np.int16), np.array(C, np.float32)
 
@@ -70,7 +69,7 @@ def build_pauli(h_vec, g_vec, n, eps):
     g.reshape(-1)[mask_cache[n]] = g_vec
     g = (g + g.transpose(1,0,2,3) + g.transpose(2,3,0,1)) / 3.0
 
-    elH    = ElectronicEnergy.from_raw_integrals(h, g, num_spatial_orbitals=n)
+    elH    = ElectronicEnergy.from_raw_integrals(h, g)
     sec_op = ElectronicStructureProblem(elH).second_q_ops()["ElectronicEnergy"]
 
     mapper   = JordanWignerMapper()
