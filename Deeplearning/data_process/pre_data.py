@@ -70,6 +70,7 @@ def build_pauli(h_vec, g_vec, n, eps):
     h[np.triu_indices(n)] = h_vec
     h = h + h.T - np.diag(np.diag(h))
 
+
     g = np.zeros((n, n, n, n), dtype=np.float64)
     g.reshape(-1)[mask_cache[n]] = g_vec
     g = (g + g.transpose(1, 0, 2, 3) + g.transpose(2, 3, 0, 1)) / 3.0
@@ -134,6 +135,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
