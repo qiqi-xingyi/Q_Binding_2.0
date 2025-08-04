@@ -23,6 +23,7 @@ N_PROC  = 8                     # parallel processes
 OUT_INT = os.path.join(DST_DIR, "integrals_h5")
 OUT_PAU = os.path.join(DST_DIR, "paulis_h5")
 
+
 # ─────────────── Utility Functions ────────────────
 
 def read_xyz(path):
