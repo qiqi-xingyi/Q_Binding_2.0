@@ -105,6 +105,7 @@ class BenchmarkProcessor:
 
 if __name__ == "__main__":
 
+
     DATA_ROOT = Path("./data/benchmark_binidng_sites")
     cfg = CPConfig(
         basis="sto-3g",

@@ -1,0 +1,22 @@
+Prediction of noncovalent interactions for PDB structure 1UTO_COMPLEX_PROTEIN
+=============================================================================
+Created on 2025/03/11 using PLIP v2.4.0
+
+If you are using PLIP in your work, please cite:
+Adasme,M. et al. PLIP 2021: expanding the scope of the protein-ligand interaction profiler to DNA and RNA. Nucl. Acids Res. (05 May 2021), gkab294. doi: 10.1093/nar/gkab294
+Analysis was done on model 1.
+
+MOL:A:1 (MOL) - SMALLMOLECULE
+-----------------------------
+Interacting chain(s): A
+
+
+**Hydrogen Bonds**
++-------+---------+----------+-----------+-------------+--------------+-----------+----------+----------+-----------+-----------+----------+-----------+-------------+--------------+------------------------+------------------------+
+| RESNR | RESTYPE | RESCHAIN | RESNR_LIG | RESTYPE_LIG | RESCHAIN_LIG | SIDECHAIN | DIST_H-A | DIST_D-A | DON_ANGLE | PROTISDON | DONORIDX | DONORTYPE | ACCEPTORIDX | ACCEPTORTYPE | LIGCOO                 | PROTCOO                | 
++=======+=========+==========+===========+=============+==============+===========+==========+==========+===========+===========+==========+===========+=============+==============+========================+========================+
+| 190   | SER     | A        | 1         | MOL         | A            | False     | 1.77     | 2.79     | 164.17    | False     | 3229     | N3        | 2479        | O2           | 46.246, 17.299, 53.544 | 48.454, 16.866, 51.896 | 
++-------+---------+----------+-----------+-------------+--------------+-----------+----------+----------+-----------+-----------+----------+-----------+-------------+--------------+------------------------+------------------------+
+
+
+
