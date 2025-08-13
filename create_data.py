@@ -2,7 +2,7 @@
 # @time:8/13/25 17:29
 # @Author : Yuqi Zhang
 # @Email : yzhan135@kent.edu
-# @File:creat_data.py
+# @File:create_data.py
 
 # scripts/batch_cp.py
 from __future__ import annotations
