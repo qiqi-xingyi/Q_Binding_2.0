@@ -4,7 +4,7 @@
 # @Email : yzhan135@kent.edu
 # @File:creat_data.py
 
-# scripts/batch_cp.py
+
 from __future__ import annotations
 import json
 from dataclasses import dataclass
@@ -20,8 +20,8 @@ from q_binding import CounterpoiseBuilder, AutoActiveSpace, HamiltonianBuilder
 
 @dataclass
 class CPConfig:
-    basis: str = "def2-SVP"                 # e.g. "def2-SVP"
-    qubit_ceiling: int = 96               # total qubit budget
+    basis: str = "def2-SVP"                 # def2-SVP
+    qubit_ceiling: int = 127              # total qubit budget
     target_tol: Optional[float] = 0.5     # kcal/mol; None → single-shot
     occ_thresh: Tuple[float, float] = (1.95, 0.05)  # (occ_hi, occ_lo)
     overwrite: bool = True
