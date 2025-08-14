@@ -47,11 +47,13 @@ class AutoActiveSpace:
                     break
 
             num_orb = len(active)
-            num_elec = 2 * len([i for i in active if i in occ_idx])
+            num_elec = 2 * len([i for i in active if i in occ_idx])  # even by construction
             qubits = 2 * num_orb
 
+            # split active electrons into spin tuple to avoid "inactive must be even" check
+            na_act = num_elec // 2
             act_trf = ActiveSpaceTransformer(
-                num_electrons=num_elec,
+                num_electrons=(na_act, na_act),  # <-- tuple (n_alpha, n_beta)
                 num_spatial_orbitals=num_orb,
             )
 
