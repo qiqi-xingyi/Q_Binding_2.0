@@ -4,7 +4,6 @@
 # @Email : yzhan135@kent.edu
 # @File:create_data.py
 
-# scripts/batch_cp.py
 from __future__ import annotations
 import json
 from dataclasses import dataclass
