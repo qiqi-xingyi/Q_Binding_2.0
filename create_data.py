@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     DATA_ROOT = Path("./data/benchmark_binidng_sites")
     cfg = CPConfig(
-        basis="sto-3g",
+        basis="def2-SVP",
         qubit_ceiling=127,
         target_tol=0.5,
         occ_thresh=(1.95, 0.05),
