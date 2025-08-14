@@ -79,6 +79,7 @@ class BenchmarkProcessor:
             op = hbuilder.build_hamiltonians()[tag]
             (out_ham / f"{tag}.json").write_text(op.to_json())
 
+
             hf_ref[tag] = float(
                 problem_frozen.hamiltonian.nuclear_repulsion_energy + problem_frozen.reference_energy
             )
