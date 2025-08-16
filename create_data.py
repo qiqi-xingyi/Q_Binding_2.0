@@ -18,7 +18,8 @@ from q_binding import CounterpoiseBuilder, AutoActiveSpace, HamiltonianBuilder
 
 @dataclass
 class CPConfig:
-    basis: str = "def2-SVP"
+    # basis: str = "def2-SVP"
+    basis: str = "sto-3g"
     qubit_ceiling: int = 127
     target_tol: Optional[float] = 0.5
     occ_thresh: Tuple[float, float] = (1.95, 0.05)
@@ -109,7 +110,8 @@ if __name__ == "__main__":
 
     DATA_ROOT = Path("./data/benchmark_binidng_sites")
     cfg = CPConfig(
-        basis="def2-SVP",
+        # basis="def2-SVP",
+        basis="sto-3g",
         qubit_ceiling=127,
         target_tol=0.5,
         occ_thresh=(1.95, 0.05),
