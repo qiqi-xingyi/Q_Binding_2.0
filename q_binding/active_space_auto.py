@@ -11,7 +11,6 @@ from qiskit_nature.second_q.transformers import (
     ActiveSpaceTransformer,
 )
 
-
 class AutoActiveSpace:
     """
     Lightweight active-space selector for the complex:
