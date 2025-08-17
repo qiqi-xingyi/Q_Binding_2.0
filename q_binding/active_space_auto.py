@@ -4,11 +4,8 @@
 # @Email : yzhan135@kent.edu
 # @File:active_space_auto.py
 
-# q_binding/active_space_auto.py
-from typing import List, Tuple, Dict, Optional
-
+from typing import Tuple, Optional
 import numpy as np
-# PySCF SCF object may be passed from caller; we do not run SCF here.
 from qiskit_nature.second_q.transformers import (
     FreezeCoreTransformer,
     ActiveSpaceTransformer,
@@ -17,199 +14,161 @@ from qiskit_nature.second_q.transformers import (
 
 class AutoActiveSpace:
     """
-    Decide a unified freeze-core + active-space on the complex, then reuse the
-    same number of spatial orbitals for all fragments. The active-electron tuple
-    (n_alpha, n_beta) is constructed so that the entire spin imbalance Sz is
-    carried by the active space, guaranteeing a closed-shell inactive space and
-    avoiding Qiskit Nature's 'inactive electrons must be even' error.
+    Lightweight active-space selector for the complex:
+      - Avoids running PySCFDriver.run() during active-space sizing;
+      - Estimates frozen (N_alpha, N_beta) via an element core-electron table;
+      - Ensures the entire spin imbalance (Sz) is carried by the active space,
+        so that the inactive space is closed-shell (no 'inactive must be even' error);
+      - Uses only the qubit_ceiling as the stopping criterion by default.
+
+    Final Hamiltonians are still built later via PySCFDriver.run() in the main workflow.
     """
 
     def __init__(
         self,
         qubit_ceiling: int = 127,
-        target_tol: Optional[float] = None,         # kcal/mol; None → single-shot
+        target_tol: Optional[float] = None,         # kept for API compatibility; ignored here
         occ_thresh: Tuple[float, float] = (1.95, 0.05),  # (occ_hi, virt_lo)
     ) -> None:
-        self._max_orb = qubit_ceiling // 2
+        self._max_orb = max(1, qubit_ceiling // 2)
         self._freeze = FreezeCoreTransformer()
-        self._tol = target_tol
+        self._tol = target_tol  # not used in lightweight mode
         self._occ_hi, self._occ_lo = occ_thresh
 
     # ------------------------------------------------------------------
     def from_complex(self, mol_cplx, hf_cplx) -> Tuple[list, dict]:
         """
-        Build transformers on the complex:
-          - FreezeCoreTransformer (shared across all fragments)
-          - ActiveSpaceTransformer with a size decided here, and with
-            (n_alpha, n_beta) carrying the full frozen Sz.
-        Returns ([freeze, active], metrics).
+        Decide a unified active-space size on the complex and return:
+          [FreezeCoreTransformer(), ActiveSpaceTransformer(...)] and metrics.
+
+        This lightweight version:
+          - does NOT call PySCFDriver.run();
+          - ignores energy-based convergence; only respects qubit_ceiling.
         """
-        # HF occupations on the complex (caller provides RHF/UHF results)
-        mo_occ = hf_cplx.mo_occ
-        occ_idx = np.where(mo_occ > self._occ_hi)[0].tolist()
-        vir_idx = np.where(mo_occ < self._occ_lo)[0].tolist()
+        # 1) Occupation-based selection bootstrap from complex HF result
+        mo_occ = np.atleast_1d(hf_cplx.mo_occ)
+        occ_idx = np.where(mo_occ > self._occ_hi)[0].tolist()   # 'deeply occupied' (valence-like)
+        vir_idx = np.where(mo_occ < self._occ_lo)[0].tolist()   # 'high virtuals'
 
-        # Determine Sz after freezing cores ON THE COMPLEX.
+        # 2) Determine frozen (N_alpha, N_beta) and Sz using a core-electron table
         na_tot, nb_tot = self._frozen_num_particles(mol_cplx)
-        Sz = int(na_tot - nb_tot)  # spin imbalance to be carried by active space
+        Sz = int(na_tot - nb_tot)  # spin imbalance that MUST be carried by the active space
 
-        # Start from all occupied; enlarge by adding virtuals in steps of 2
+        # 3) Grow active space from all occupied orbitals, then add virtuals up to ceiling
         active = occ_idx.copy()
-        step = 2
-        last_dE = None
+        budget = min(self._max_orb, len(occ_idx) + len(vir_idx))
+        while len(active) < budget:
+            # deterministic pick of next virtual
+            next_v = vir_idx[len(active) - len(occ_idx)]
+            active.append(next_v)
 
-        # Helper to build an ActiveSpaceTransformer consistent with Sz
-        def build_act_trf(num_orb: int) -> Tuple[ActiveSpaceTransformer, int]:
-            # Max electrons we can put into active space is bounded by both
-            # available electrons and the number of orbitals.
-            max_act_total = min(2 * num_orb, na_tot + nb_tot)
+        num_orb = len(active)              # spatial orbitals in active space
+        qubits = 2 * num_orb
 
-            # Ensure parity consistency with Sz: (n_act_total - Sz) must be even.
-            n_act_total = max_act_total
-            if (n_act_total - Sz) % 2 != 0:
-                # prefer decreasing by 1 (to stay within 2*num_orb)
-                n_act_total -= 1
-                if n_act_total < 0:
-                    n_act_total = 0
-
-            # Distribute to spins so that active carries all Sz.
-            na_act = (n_act_total + Sz) // 2
-            nb_act = n_act_total - na_act
-
-            # Clamp to physical ranges (rare edge-cases).
-            na_act = max(0, min(na_act, na_tot))
-            nb_act = max(0, min(nb_act, nb_tot))
-            n_act_total = na_act + nb_act  # refresh after clamping
-
-            act = ActiveSpaceTransformer(
-                num_electrons=(na_act, nb_act),
-                num_spatial_orbitals=num_orb,
-            )
-            return act, n_act_total
-
-        while True:
-            # Grow active virtuals only if we still have budget and virtuals left.
-            while len(active) < min(self._max_orb, len(vir_idx)):
-                # pick next virtual in a deterministic order
-                next_v = vir_idx[len(active) - len(occ_idx)]
-                active.append(next_v)
-                if len(active) % step == 0:
-                    break
-
-            num_orb = len(active)
-            qubits = 2 * num_orb
-
-            act_trf, n_act_total = build_act_trf(num_orb)
-
-            # Convergence / budget checks using a cheap HF-in-active estimator
-            e_curr = self._quick_delta_e(mol_cplx, num_orb)
-            if self._tol is None:
-                # Single-shot: stop when we hit ceiling or no more virtuals added
-                if qubits >= self._max_orb * 2 or len(active) >= len(occ_idx) + len(vir_idx):
-                    break
-            else:
-                if last_dE is not None and (abs(e_curr - last_dE) < self._tol or qubits >= self._max_orb * 2):
-                    break
-                last_dE = e_curr
+        # 4) Build an ActiveSpaceTransformer consistent with Sz
+        act_trf, n_act_total = self._build_act_trf_with_sz(num_orb, na_tot, nb_tot, Sz)
 
         metrics = {
             "active_orb": num_orb,
-            "active_elec": n_act_total,   # total active electrons actually used
+            "active_elec": n_act_total,    # total active electrons actually used
             "qubits": qubits,
         }
         return [self._freeze, act_trf], metrics
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _core_electrons_for(elem: str) -> int:
+        """
+        Minimal core-electron table suitable for bio/organic elements.
+        Extend if heavier elements are expected.
+        """
+        elem = elem.capitalize()
+        table = {
+            # H/He
+            "H": 0, "He": 0,
+            # 2nd period: freeze 1s^2
+            "Li": 2, "Be": 2, "B": 2, "C": 2, "N": 2, "O": 2, "F": 2, "Ne": 2,
+            # 3rd period: freeze up to [Ne]
+            "Na": 10, "Mg": 10, "Al": 10, "Si": 10, "P": 10, "S": 10, "Cl": 10, "Ar": 10,
+        }
+        return table.get(elem, 0)
+
     def _frozen_num_particles(self, mol) -> Tuple[int, int]:
-        """Return (N_alpha, N_beta) after applying FreezeCore to 'mol'."""
-        from qiskit_nature.second_q.drivers import PySCFDriver
-
-        atom_strings = [f"{s} {x:.10f} {y:.10f} {z:.10f}" for s, (x, y, z) in mol.atom]
-        driver = PySCFDriver(
-            atom=atom_strings,
-            charge=mol.charge,
-            spin=mol.spin,
-            basis=mol.basis,
-        )
-        problem = driver.run()
-        problem_frozen = self._freeze.transform(problem)
-        return problem_frozen.num_particles  # (N_alpha, N_beta)
-
-    # ------------------------------------------------------------------
-    def _quick_delta_e(self, mol_cplx, num_orb: int) -> float:
         """
-        Cheap estimator (HF-in-active) used only for convergence of the
-        active-space size. We ensure inactive space is closed-shell by:
-          1) Freeze cores;
-          2) Put the full Sz into the active-electron tuple.
-        Returns kcal/mol.
+        Return (N_alpha, N_beta) AFTER freezing cores, without running PySCFDriver.
+
+        Rules:
+          - Ignore ghost atoms ('GhX' or 'GHOST-X') in electron counting;
+          - Subtract per-element core electrons from total electrons;
+          - Preserve overall spin S = N_alpha - N_beta = mol.spin.
         """
-        from qiskit_nature.second_q.drivers import PySCFDriver
-        from qiskit_nature.second_q.transformers import ActiveSpaceTransformer, FreezeCoreTransformer
+        from pyscf import gto
 
-        # Build raw problem
-        atom_strings = [f"{sym} {x:.10f} {y:.10f} {z:.10f}" for sym, (x, y, z) in mol_cplx.atom]
-        driver = PySCFDriver(
-            atom=atom_strings,
-            charge=mol_cplx.charge,
-            spin=mol_cplx.spin,
-            basis=mol_cplx.basis,
-        )
-        problem = driver.run()
+        total_e = 0
+        frozen_e = 0
+        for sym, (x, y, z) in mol.atom:
+            if sym.startswith(("Gh", "GHOST-")):
+                continue
+            elem = sym  # element symbol
+            Z = gto.mole.charge(elem)
+            total_e += Z
+            frozen_e += self._core_electrons_for(elem)
 
-        # Freeze cores first (use a local transformer to keep this method self-contained)
-        freeze = FreezeCoreTransformer()
-        problem_frozen = freeze.transform(problem)
-        na_tot, nb_tot = problem_frozen.num_particles
-        Sz = int(na_tot - nb_tot)
+        total_e -= mol.charge
+        ne = max(0, total_e - frozen_e)
+        S = int(mol.spin)  # N_alpha - N_beta
 
-        # Build an active-space consistent with Sz and the given num_orb
+        # Ensure parity consistency: (ne - S) must be even
+        if (ne - S) % 2 != 0:
+            # Adjust by one electron if pathological (very rare with sane inputs)
+            ne = max(0, ne - 1)
+
+        n_alpha = (ne + S) // 2
+        n_beta = ne - n_alpha
+        return n_alpha, n_beta
+
+    @staticmethod
+    def _build_act_trf_with_sz(
+        num_orb: int, na_tot: int, nb_tot: int, Sz: int
+    ) -> Tuple[ActiveSpaceTransformer, int]:
+        """
+        Given the number of active spatial orbitals and the frozen-space
+        (N_alpha, N_beta), construct an (n_alpha_act, n_beta_act) tuple so that:
+          n_alpha_act - n_beta_act = Sz, and
+          n_alpha_act + n_beta_act <= 2 * num_orb,
+        with parity (n_act_total - Sz) even.
+        """
         max_act_total = min(2 * num_orb, na_tot + nb_tot)
         n_act_total = max_act_total
         if (n_act_total - Sz) % 2 != 0:
             n_act_total -= 1
             if n_act_total < 0:
                 n_act_total = 0
+
         na_act = (n_act_total + Sz) // 2
         nb_act = n_act_total - na_act
 
-        act_trf = ActiveSpaceTransformer(
+        # Clamp to physical ranges (very rare edge cases)
+        na_act = max(0, min(na_act, na_tot))
+        nb_act = max(0, min(nb_act, nb_tot))
+        n_act_total = na_act + nb_act
+
+        act = ActiveSpaceTransformer(
             num_electrons=(na_act, nb_act),
             num_spatial_orbitals=num_orb,
         )
-        problem_act = act_trf.transform(problem_frozen)
+        return act, n_act_total
 
-        # HF reference energy (Hartree) → kcal/mol
-        # hf_e = (
-        #     problem_act.hamiltonian.nuclear_repulsion_energy
-        #     + problem_act.reference_energy
-        # )
-        # return float(hf_e * 627.509)
-
-        # HF reference energy (Hartree) → kcal/mol  (version-safe access)
-        # Try modern locations first, then fall back gracefully.
-
-        e_nuc = None
-        try:
-
-            e_nuc = float(problem_act.hamiltonian.nuclear_repulsion_energy)
-        except Exception:
-
-            e_nuc = float(getattr(problem_act.hamiltonian, "_nuclear_repulsion_energy", 0.0))
-
-        e_ref = None
-
-        if hasattr(problem_act, "reference_energy") and problem_act.reference_energy is not None:
-            e_ref = float(problem_act.reference_energy)
-
-        elif getattr(problem_act, "properties", None) is not None:
-            ee_prop = getattr(problem_act.properties, "electronic_energy", None)
-            if ee_prop is not None and getattr(ee_prop, "reference_energy", None) is not None:
-                e_ref = float(ee_prop.reference_energy)
-
-        if e_ref is None:
-            e_ref = 0.0
-
-        hf_e = e_nuc + e_ref
-        return float(hf_e * 627.509)
-
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _quick_delta_e(mol_cplx) -> float:
+        """
+        Optional lightweight proxy for energy (unused by default).
+        Runs DF-RHF on the complex without generating MO-ERIs to avoid /tmp bloat.
+        Returns kcal/mol.
+        """
+        from pyscf import scf
+        mf = scf.RHF(mol_cplx).density_fit()
+        mf.conv_tol = 1e-6
+        e_hf = mf.kernel()
+        return float(e_hf * 627.509)
