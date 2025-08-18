@@ -20,6 +20,11 @@ from qiskit.quantum_info import SparsePauliOp
 
 from q_binding import CounterpoiseBuilder, AutoActiveSpace, HamiltonianBuilder
 
+from qiskit_nature.second_q.operators import FermionicOp
+from qiskit.quantum_info import SparsePauliOp
+import json
+import numpy as np
+
 
 # ---------- helpers: serialization ----------
 def _pairs_from_sparse_label_op(op) -> list[tuple[str, complex]]:
