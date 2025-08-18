@@ -68,13 +68,28 @@ class BenchmarkProcessor:
             )
             problem_raw = driver.run()
             problem_frozen = freeze_trf.transform(problem_raw)
+
             n_alpha, n_beta = problem_frozen.num_particles
+            Sz = n_alpha - n_beta
+
+            num_orb = metrics["active_orb"]
+            max_act_total = min(2 * num_orb, n_alpha + n_beta)
+            n_act_total = max_act_total
+            if (n_act_total - Sz) % 2 != 0:
+                n_act_total -= 1
+                if n_act_total < 0:
+                    n_act_total = 0
+
+            na_act = (n_act_total + Sz) // 2
+            nb_act = n_act_total - na_act
+
+            na_act = max(0, min(na_act, n_alpha))
+            nb_act = max(0, min(nb_act, n_beta))
 
             act_trf = ActiveSpaceTransformer(
-                num_electrons=(n_alpha, n_beta),
-                num_spatial_orbitals=metrics["active_orb"],
+                num_electrons=(na_act, nb_act),
+                num_spatial_orbitals=num_orb,
             )
-
             hbuilder = HamiltonianBuilder({tag: mole_dict[tag]}, transformers=[freeze_trf, act_trf])
             op = hbuilder.build_hamiltonians()[tag]
             (out_ham / f"{tag}.json").write_text(op.to_json())
