@@ -5,8 +5,6 @@
 # @File:create_data.py
 
 # create_data.py
-
-# create_data.py
 from __future__ import annotations
 import json
 from dataclasses import dataclass
