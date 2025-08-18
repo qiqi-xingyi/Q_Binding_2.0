@@ -5,6 +5,8 @@
 # @File:create_data.py
 
 # create_data.py
+
+# create_data.py
 from __future__ import annotations
 import json
 from dataclasses import dataclass
@@ -15,27 +17,38 @@ from pyscf import scf
 from qiskit_nature.second_q.drivers import PySCFDriver
 from qiskit_nature.second_q.transformers import ActiveSpaceTransformer
 from qiskit_nature.second_q.operators import FermionicOp
+from qiskit_nature.second_q.mappers import JordanWignerMapper
+from qiskit.quantum_info import SparsePauliOp
 
 from q_binding import CounterpoiseBuilder, AutoActiveSpace, HamiltonianBuilder
 
 
-# -------- helpers: FermionicOp <-> JSON --------
+# ---------- helpers: serialization ----------
+def _pairs_from_sparse_label_op(op) -> list[tuple[str, complex]]:
+    """Version-robust extraction of (label, coeff) pairs."""
+    if hasattr(op, "to_list"):  # preferred
+        return [(lbl, complex(c)) for lbl, c in op.to_list()]
+    if hasattr(op, "to_sparse_list"):  # older fall-back
+        return [(lbl, complex(c)) for lbl, c in op.to_sparse_list()]
+    # last resort: labels/coeffs arrays
+    if hasattr(op, "labels") and hasattr(op, "coeffs"):
+        labels = list(op.labels)
+        coeffs = np.array(op.coeffs, dtype=complex).tolist()
+        return list(zip(labels, map(complex, coeffs)))
+    raise TypeError(f"Unsupported operator type for serialization: {type(op)}")
+
 def fermionic_to_json(op: FermionicOp) -> str:
-    data = [(label, [complex(c).real, complex(c).imag]) for label, c in op.to_list()]
-    payload = {"type": "FermionicOp", "version": "0.7", "data": data}
-    return json.dumps(payload)
+    data = [(label, [c.real, c.imag]) for label, c in _pairs_from_sparse_label_op(op)]
+    return json.dumps({"type": "FermionicOp", "version": "0.7+", "data": data})
 
-
-def fermionic_from_json(s: str) -> FermionicOp:
-    payload = json.loads(s)
-    data = [(label, complex(re, im)) for label, (re, im) in payload["data"]]
-    return FermionicOp(data)
-
+def sparse_pauli_to_json(op: SparsePauliOp) -> str:
+    data = [(label, [c.real, c.imag]) for label, c in _pairs_from_sparse_label_op(op)]
+    return json.dumps({"type": "SparsePauliOp", "version": "1.0+", "data": data})
 
 # ---------------- config ----------------
 @dataclass
 class CPConfig:
-    basis: str = "sto-3g"  # "def2-SVP" for higher accuracy
+    basis: str = "sto-3g"  # use "def2-SVP" for higher accuracy on selected cases
     qubit_ceiling: int = 127
     target_tol: Optional[float] = 0.5
     occ_thresh: Tuple[float, float] = (1.95, 0.05)
@@ -46,6 +59,7 @@ class CPConfig:
 class BenchmarkProcessor:
     def __init__(self, cfg: CPConfig):
         self.cfg = cfg
+        self._mapper = JordanWignerMapper()  # fixed JW mapping
 
     def run_all(self, root: Path) -> None:
         pairs = self._discover_pairs(root)
@@ -88,7 +102,7 @@ class BenchmarkProcessor:
             problem_raw = driver.run()
             problem_frozen = freeze_trf.transform(problem_raw)
 
-            # fragment-specific (n_alpha, n_beta) inside the active space
+            # fragment-specific active electrons consistent with Sz and capacity
             n_alpha, n_beta = problem_frozen.num_particles
             Sz = n_alpha - n_beta
             num_orb = metrics["active_orb"]
@@ -108,14 +122,20 @@ class BenchmarkProcessor:
                 num_spatial_orbitals=num_orb,
             )
 
-            # Build Hamiltonian (FermionicOp)
-            hbuilder = HamiltonianBuilder({tag: mole_dict[tag]}, transformers=[freeze_trf, act_trf])
-            op = hbuilder.build_hamiltonians()[tag]
+            # --- build ElectronicEnergy, then get FermionicOp ---
+            e_energy = HamiltonianBuilder(
+                {tag: mole_dict[tag]}, transformers=[freeze_trf, act_trf]
+            ).build_hamiltonians()[tag]                  # ElectronicEnergy
+            f_op: FermionicOp = e_energy.second_q_op()   # FermionicOp
 
-            # --- fix #1: serialize FermionicOp via to_list (custom JSON) ---
-            (out_ham / f"{tag}.json").write_text(fermionic_to_json(op))
+            # Save FermionicOp
+            (out_ham / f"{tag}.json").write_text(fermionic_to_json(f_op))
 
-            # version-tolerant HF reference (only for logging)
+            # Map to Pauli with JW and save
+            q_op: SparsePauliOp = self._mapper.map(f_op)
+            (out_ham / f"{tag}.pauli.json").write_text(sparse_pauli_to_json(q_op))
+
+            # version-tolerant HF reference (log only)
             try:
                 e_nuc = float(problem_frozen.hamiltonian.nuclear_repulsion_energy)
             except Exception:
@@ -131,14 +151,14 @@ class BenchmarkProcessor:
                 e_ref = 0.0
             hf_ref[tag] = e_nuc + e_ref
 
-            # --- fix #2: print dimensions from FermionicOp.register_length (or metrics) ---
+            # dimensions
             try:
-                nspin = op.register_length
+                nspin = f_op.register_length
                 norb = nspin // 2
             except Exception:
                 norb = metrics["active_orb"]
                 nspin = 2 * norb
-            print(f"[{case_dir.name}] {tag:<7s}: {norb:>3d} orb → {nspin:>3d} qubits")
+            print(f"[{case_dir.name}] {tag:<7s}: {norb:>3d} orb → {nspin:>3d} qubits (JW, {q_op.num_qubits} qb)")
 
         info = {
             "basis": self.cfg.basis,
@@ -146,6 +166,7 @@ class BenchmarkProcessor:
             "qubits": metrics["active_orb"] * 2,
             "case": case_dir.name,
             "hf_reference": hf_ref,
+            "mapper": "jordan-wigner",
         }
         (case_dir / "checkpoint.txt").write_text(json.dumps(info, indent=2))
         print(f"[DONE] {case_dir.name} → {out_ham}")
@@ -161,7 +182,6 @@ class BenchmarkProcessor:
 
 
 if __name__ == "__main__":
-
     DATA_ROOT = Path("./data/benchmark_binidng_sites")
     cfg = CPConfig(
         basis="sto-3g",
