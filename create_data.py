@@ -184,6 +184,7 @@ class BenchmarkProcessor:
         return pairs
 
 
+
 if __name__ == "__main__":
     DATA_ROOT = Path("./data/benchmark_binidng_sites")
     cfg = CPConfig(
