@@ -20,6 +20,9 @@ from qiskit.quantum_info import SparsePauliOp
 
 from q_binding import CounterpoiseBuilder, AutoActiveSpace, HamiltonianBuilder
 
+from qiskit_nature.settings import settings
+settings.optimize_einsum = False
+
 from qiskit_nature.second_q.operators import FermionicOp
 from qiskit.quantum_info import SparsePauliOp
 import json
